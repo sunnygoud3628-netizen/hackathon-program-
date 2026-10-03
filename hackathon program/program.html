@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Algorithm Race Dashboard | Working Prototype</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    body { font-family: 'Inter', sans-serif; }
+    .sidebar { width: 280px; }
+    .metric-card { transition: all 0.2s; }
+    .metric-card:hover { transform: translateY(-2px); }
+    .tab-btn.active { background: #0ea5e9; color: white; }
+    .badge-measured { background: #10b981; }
+    .badge-fastest { background: linear-gradient(135deg, #f59e0b, #ef4444); }
+    pre { white-space: pre-wrap; }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 flex h-screen overflow-hidden">
+
+  <!-- ==================== SIDEBAR ==================== -->
+  <aside class="sidebar bg-slate-900 text-white flex-shrink-0 flex flex-col">
+    <div class="p-5 border-b border-slate-700">
+      <div class="flex items-center gap-3">
+        <i class="fas fa-flag-checkered text-2xl text-sky-400"></i>
+        <div>
+          <h1 class="font-bold text-lg leading-tight">Algorithm Race</h1>
+          <p class="text-xs text-slate-400">DAA Working Prototype</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="flex-1 overflow-y-auto p-5 space-y-6">
+      <!-- Dataset Size -->
+      <div>
+        <label class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Dataset Size</label>
+        <select id="size" class="mt-1 w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500">
+          <option value="100">100</option>
+          <option value="500">500</option>
+          <option value="1000" selected>1,000</option>
+          <option value="2000">2,000</option>
+          <option value="5000">5,000</option>
+        </select>
+      </div>
+
+      <!-- Input Type -->
+      <div>
+        <label class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Input Type</label>
+        <select id="inputType" class="mt-1 w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500">
+          <option value="random">Random</option>
+          <option value="sorted">Sorted</option>
+          <option value="reverse">Reverse Sorted</option>
+        </select>
+      </div>
+
+      <!-- Seed -->
+      <div>
+        <label class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Random Seed</label>
+        <input type="number" id="seed" value="42" class="mt-1 w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500">
+      </div>
+
+      <!-- Algorithms -->
+      <div>
+        <label class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Algorithms</label>
+        <div class="mt-2 space-y-2">
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" id="algoMerge" checked class="rounded text-sky-500">
+            <span class="text-sm">Merge Sort</span>
+          </label>
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" id="algoQuick" checked class="rounded text-sky-500">
+            <span class="text-sm">Quick Sort</span>
+          </label>
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" id="algoHeap" checked class="rounded text-sky-500">
+            <span class="text-sm">Heap Sort</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Trials -->
+      <div>
+        <label class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Number of Trials</label>
+        <input type="number" id="trials" value="5" min="1" max="20" class="mt-1 w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500">
+      </div>
+
+      <!-- Run Button -->
+      <button id="runBtn" class="w-full bg-sky-500 hover:bg-sky-600 text-white font-semibold py-3 rounded-lg transition flex items-center justify-center gap-2">
+        <i class="fas fa-play"></i> Run Algorithms
+      </button>
+
+      <button id="exportBtn" class="w-full bg-slate-700 hover:bg-slate-600 text-white text-sm py-2 rounded-lg transition flex items-center justify-center gap-2" disabled>
+        <i class="fas fa-file-csv"></i> Export CSV
+      </button>
+    </div>
+
+    <div class="p-4 border-t border-slate-700 text-xs text-slate-500 text-center">
+      All timings measured live in browser
+    </div>
+  </aside>
+
+  <!-- ==================== MAIN CONTENT ==================== -->
+  <div class="flex-1 flex flex-col overflow-hidden">
+    <!-- Top Tabs -->
+    <div class="bg-white border-b px-6 py-3 flex gap-2">
+      <button class="tab-btn active px-4 py-2 rounded-lg text-sm font-medium transition" data-tab="race">🏁 Race Results</button>
+      <button class="tab-btn px-4 py-2 rounded-lg text-sm font-medium transition text-slate-600 hover:bg-slate-100" data-tab="binary">🔍 Binary Search</button>
+      <button class="tab-btn px-4 py-2 rounded-lg text-sm font-medium transition text-slate-600 hover:bg-slate-100" data-tab="theory">📘 Theory</button>
+    </div>
+
+    <!-- Tab Contents -->
+    <div class="flex-1 overflow-y-auto p-6">
+
+      <!-- ========== RACE TAB ========== -->
+      <div id="tab-race" class="space-y-6">
+        <!-- Status -->
+        <div id="status" class="bg-sky-50 border border-sky-200 text-sky-800 px-4 py-3 rounded-lg text-sm hidden">
+          <i class="fas fa-spinner fa-spin mr-2"></i> Running algorithms...
+        </div>
+
+        <!-- Metric Cards -->
+        <div id="metrics" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 hidden">
+          <!-- Dynamically filled -->
+        </div>
+
+        <!-- Charts -->
+        <div id="charts" class="grid lg:grid-cols-2 gap-6 hidden">
+          <div class="bg-white rounded-xl border p-5 shadow-sm">
+            <div class="flex justify-between items-center mb-3">
+              <h3 class="font-semibold">Average Execution Time</h3>
+              <span class="badge-measured text-white text-xs px-2 py-0.5 rounded">MEASURED</span>
+            </div>
+            <canvas id="timeChart" height="200"></canvas>
+          </div>
+          <div class="bg-white rounded-xl border p-5 shadow-sm">
+            <div class="flex justify-between items-center mb-3">
+              <h3 class="font-semibold">Comparisons</h3>
+              <span class="badge-measured text-white text-xs px-2 py-0.5 rounded">MEASURED</span>
+            </div>
+            <canvas id="compChart" height="200"></canvas>
+          </div>
+          <div class="bg-white rounded-xl border p-5 shadow-sm">
+            <div class="flex justify-between items-center mb-3">
+              <h3 class="font-semibold">Swaps / Moves</h3>
+              <span class="badge-measured text-white text-xs px-2 py-0.5 rounded">MEASURED</span>
+            </div>
+            <canvas id="swapChart" height="200"></canvas>
+          </div>
+          <div class="bg-white rounded-xl border p-5 shadow-sm">
+            <h3 class="font-semibold mb-3">Results Table</h3>
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm" id="resultsTable">
+                <thead class="bg-slate-50">
+                  <tr>
+                    <th class="px-3 py-2 text-left">Algorithm</th>
+                    <th class="px-3 py-2 text-right">Time (ms)</th>
+                    <th class="px-3 py-2 text-right">Comparisons</th>
+                    <th class="px-3 py-2 text-right">Swaps/Moves</th>
+                    <th class="px-3 py-2 text-center">Valid</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Placeholder -->
+        <div id="placeholder" class="text-center py-20 text-slate-400">
+          <i class="fas fa-play-circle text-6xl mb-4"></i>
+          <p class="text-lg">Configure parameters and click <strong>Run Algorithms</strong></p>
+        </div>
+      </div>
+
+      <!-- ========== BINARY SEARCH TAB ========== -->
+      <div id="tab-binary" class="hidden space-y-6">
+        <div class="bg-white rounded-xl border p-6 shadow-sm">
+          <h2 class="text-xl font-bold mb-4">Binary Search Visualizer</h2>
+          <div class="flex flex-wrap gap-4 items-end mb-6">
+            <div>
+              <label class="text-xs font-semibold text-slate-500">Array Size</label>
+              <input type="number" id="bsSize" value="32" min="8" max="64" class="block mt-1 border rounded-lg px-3 py-2 w-24">
+            </div>
+            <div>
+              <label class="text-xs font-semibold text-slate-500">Target Value</label>
+              <input type="number" id="bsTarget" value="42" class="block mt-1 border rounded-lg px-3 py-2 w-24">
+            </div>
+            <button id="bsRun" class="bg-sky-500 hover:bg-sky-600 text-white px-5 py-2 rounded-lg font-medium">
+              Search
+            </button>
+          </div>
+
+          <div id="bsArray" class="flex flex-wrap gap-1 mb-6 min-h-[60px]"></div>
+          <div id="bsInfo" class="text-sm text-slate-600 mb-4"></div>
+          <div id="bsSteps" class="space-y-2 max-h-80 overflow-y-auto"></div>
+        </div>
+      </div>
+
+      <!-- ========== THEORY TAB ========== -->
+      <div id="tab-theory" class="hidden space-y-6">
+        <div class="bg-white rounded-xl border p-6 shadow-sm">
+          <h2 class="text-xl font-bold mb-4">Theoretical Complexity</h2>
+          <table class="w-full text-sm mb-6">
+            <thead class="bg-slate-50">
+              <tr>
+                <th class="px-4 py-3 text-left">Algorithm</th>
+                <th class="px-4 py-3">Best</th>
+                <th class="px-4 py-3">Average</th>
+                <th class="px-4 py-3">Worst</th>
+                <th class="px-4 py-3">Space</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y">
+              <tr><td class="px-4 py-3 font-medium">Merge Sort</td><td class="px-4 py-3 text-center">O(n log n)</td><td class="px-4 py-3 text-center">O(n log n)</td><td class="px-4 py-3 text-center">O(n log n)</td><td class="px-4 py-3 text-center">O(n)</td></tr>
+              <tr><td class="px-4 py-3 font-medium">Quick Sort</td><td class="px-4 py-3 text-center">O(n log n)</td><td class="px-4 py-3 text-center">O(n log n)</td><td class="px-4 py-3 text-center text-red-600">O(n²)</td><td class="px-4 py-3 text-center">O(log n)</td></tr>
+              <tr><td class="px-4 py-3 font-medium">Heap Sort</td><td class="px-4 py-3 text-center">O(n log n)</td><td class="px-4 py-3 text-center">O(n log n)</td><td class="px-4 py-3 text-center">O(n log n)</td><td class="px-4 py-3 text-center">O(1)</td></tr>
+              <tr><td class="px-4 py-3 font-medium">Binary Search</td><td class="px-4 py-3 text-center">O(1)</td><td class="px-4 py-3 text-center">O(log n)</td><td class="px-4 py-3 text-center">O(log n)</td><td class="px-4 py-3 text-center">O(1)</td></tr>
+            </tbody>
+          </table>
+
+          <div class="grid md:grid-cols-2 gap-6 text-sm text-slate-600">
+            <div>
+              <h3 class="font-semibold text-slate-800 mb-2">Why measurements differ from theory</h3>
+              <ul class="list-disc pl-5 space-y-1">
+                <li>Constant factors and memory access patterns</li>
+                <li>Python/JS interpreter overhead</li>
+                <li>Cache locality (Merge Sort uses extra memory)</li>
+                <li>Pivot selection quality in Quick Sort</li>
+                <li>Small n is dominated by overhead</li>
+              </ul>
+            </div>
+            <div>
+              <h3 class="font-semibold text-slate-800 mb-2">Counting Rules</h3>
+              <ul class="list-disc pl-5 space-y-1">
+                <li>Every element comparison = 1 comparison</li>
+                <li>Every exchange of two elements = 1 swap</li>
+                <li>Every write during merge = 1 move</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+// ==================== UTILITIES ====================
+function seededRandom(seed) {
+  let s = seed;
+  return function() {
+    s = (s * 16807 + 0) % 2147483647;
+    return (s - 1) / 2147483646;
+  };
+}
+
+function generateData(n, type, seed) {
+  const rand = seededRandom(seed);
+  let arr = Array.from({length: n}, (_, i) => i + 1);
+  if (type === 'random') {
+    for (let i = n - 1; i > 0; i--) {
+      const j = Math.floor(rand() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+  } else if (type === 'reverse') {
+    arr.reverse();
+  }
+  return arr;
+}
+
+function isSorted(arr) {
+  for (let i = 1; i < arr.length; i++) if (arr[i] < arr[i-1]) return false;
+  return true;
+}
+
+// ==================== ALGORITHMS ====================
+function mergeSort(arr) {
+  let comparisons = 0, moves = 0;
+  const a = [...arr];
+
+  function merge(left, right) {
+    const result = [];
+    let i = 0, j = 0;
+    while (i < left.length && j < right.length) {
+      comparisons++;
+      if (left[i] <= right[j]) {
+        result.push(left[i++]);
+      } else {
+        result.push(right[j++]);
+      }
+      moves++;
+    }
+    while (i < left.length) { result.push(left[i++]); moves++; }
+    while (j < right.length) { result.push(right[j++]); moves++; }
+    return result;
+  }
+
+  function sort(array) {
+    if (array.length <= 1) return array;
+    const mid = Math.floor(array.length / 2);
+    return merge(sort(array.slice(0, mid)), sort(array.slice(mid)));
+  }
+
+  const sorted = sort(a);
+  return { sorted, comparisons, swaps: moves }; // moves reported as swaps
+}
+
+function quickSort(arr) {
+  let comparisons = 0, swaps = 0;
+  const a = [...arr];
+
+  function medianOfThree(lo, hi) {
+    const mid = Math.floor((lo + hi) / 2);
+    if (a[lo] > a[mid]) { [a[lo], a[mid]] = [a[mid], a[lo]]; swaps++; }
+    if (a[lo] > a[hi])  { [a[lo], a[hi]]  = [a[hi], a[lo]];  swaps++; }
+    if (a[mid] > a[hi]) { [a[mid], a[hi]] = [a[hi], a[mid]]; swaps++; }
+    return mid;
+  }
+
+  function partition(lo, hi) {
+    const pIdx = medianOfThree(lo, hi);
+    const pivot = a[pIdx];
+    [a[pIdx], a[hi]] = [a[hi], a[pIdx]]; swaps++;
+    let i = lo;
+    for (let j = lo; j < hi; j++) {
+      comparisons++;
+      if (a[j] < pivot) {
+        [a[i], a[j]] = [a[j], a[i]];
+        swaps++;
+        i++;
+      }
+    }
+    [a[i], a[hi]] = [a[hi], a[i]]; swaps++;
+    return i;
+  }
+
+  function sort(lo, hi) {
+    if (lo < hi) {
+      const p = partition(lo, hi);
+      sort(lo, p - 1);
+      sort(p + 1, hi);
+    }
+  }
+
+  sort(0, a.length - 1);
+  return { sorted: a, comparisons, swaps };
+}
+
+function heapSort(arr) {
+  let comparisons = 0, swaps = 0;
+  const a = [...arr];
+  const n = a.length;
+
+  function siftDown(start, end) {
+    let root = start;
+    while (true) {
+      let child = 2 * root + 1;
+      if (child > end) break;
+      if (child + 1 <= end) {
+        comparisons++;
+        if (a[child] < a[child + 1]) child++;
+      }
+      comparisons++;
+      if (a[root] < a[child]) {
+        [a[root], a[child]] = [a[child], a[root]];
+        swaps++;
+        root = child;
+      } else break;
+    }
+  }
+
+  // Build heap
+  for (let i = Math.floor(n / 2) - 1; i >= 0; i--) {
+    siftDown(i, n - 1);
+  }
+  // Extract
+  for (let end = n - 1; end > 0; end--) {
+    [a[0], a[end]] = [a[end], a[0]];
+    swaps++;
+    siftDown(0, end - 1);
+  }
+  return { sorted: a, comparisons, swaps };
+}
+
+// ==================== RACE LOGIC ====================
+let lastResults = [];
+let timeChart, compChart, swapChart;
+
+document.getElementById('runBtn').addEventListener('click', async () => {
+  const size = +document.getElementById('size').value;
+  const type = document.getElementById('inputType').value;
+  const seed = +document.getElementById('seed').value;
+  const trials = +document.getElementById('trials').value;
+
+  const algos = [];
+  if (document.getElementById('algoMerge').checked) algos.push({name: 'Merge Sort', fn: mergeSort});
+  if (document.getElementById('algoQuick').checked) algos.push({name: 'Quick Sort', fn: quickSort});
+  if (document.getElementById('algoHeap').checked)  algos.push({name: 'Heap Sort',  fn: heapSort});
+
+  if (algos.length === 0) {
+    alert('Select at least one algorithm');
+    return;
+  }
+
+  document.getElementById('status').classList.remove('hidden');
+  document.getElementById('placeholder').classList.add('hidden');
+  document.getElementById('metrics').classList.add('hidden');
+  document.getElementById('charts').classList.add('hidden');
+  document.getElementById('runBtn').disabled = true;
+
+  // Allow UI to update
+  await new Promise(r => setTimeout(r, 50));
+
+  const baseData = generateData(size, type, seed);
+  const results = [];
+
+  for (const algo of algos) {
+    let totalTime = 0, totalComp = 0, totalSwap = 0;
+    let valid = true;
+
+    for (let t = 0; t < trials; t++) {
+      const data = [...baseData];
+      const start = performance.now();
+      const res = algo.fn(data);
+      const end = performance.now();
+      totalTime += (end - start);
+      totalComp += res.comparisons;
+      totalSwap += res.swaps;
+      if (!isSorted(res.sorted)) valid = false;
+    }
+
+    results.push({
+      name: algo.name,
+      time: totalTime / trials,
+      comparisons: Math.round(totalComp / trials),
+      swaps: Math.round(totalSwap / trials),
+      valid
+    });
+  }
+
+  // Sort by time to find fastest
+  results.sort((a, b) => a.time - b.time);
+  lastResults = results;
+
+  // Render metrics
+  const metricsEl = document.getElementById('metrics');
+  metricsEl.innerHTML = results.map((r, i) => `
+    <div class="metric-card bg-white rounded-xl border p-5 shadow-sm relative">
+      ${i === 0 ? '<span class="badge-fastest text-white text-xs px-2 py-0.5 rounded absolute top-3 right-3">🏆 FASTEST</span>' : ''}
+      <div class="text-sm text-slate-500 mb-1">${r.name}</div>
+      <div class="text-2xl font-bold text-slate-800">${r.time.toFixed(3)} <span class="text-sm font-normal text-slate-500">ms</span></div>
+      <div class="mt-3 grid grid-cols-2 gap-2 text-xs">
+        <div><span class="text-slate-500">Comparisons</span><br><strong>${r.comparisons.toLocaleString()}</strong></div>
+        <div><span class="text-slate-500">Swaps/Moves</span><br><strong>${r.swaps.toLocaleString()}</strong></div>
+      </div>
+      <div class="mt-2 text-xs ${r.valid ? 'text-emerald-600' : 'text-red-600'}">
+        ${r.valid ? '✓ Output validated' : '✗ Not sorted'}
+      </div>
+    </div>
+  `).join('');
+
+  // Table
+  const tbody = document.querySelector('#resultsTable tbody');
+  tbody.innerHTML = results.map(r => `
+    <tr class="border-t">
+      <td class="px-3 py-2 font-medium">${r.name}</td>
+      <td class="px-3 py-2 text-right">${r.time.toFixed(4)}</td>
+      <td class="px-3 py-2 text-right">${r.comparisons.toLocaleString()}</td>
+      <td class="px-3 py-2 text-right">${r.swaps.toLocaleString()}</td>
+      <td class="px-3 py-2 text-center">${r.valid ? '✓' : '✗'}</td>
+    </tr>
+  `).join('');
+
+  // Charts
+  const labels = results.map(r => r.name);
+  const colors = ['#0ea5e9', '#10b981', '#8b5cf6', '#f59e0b'];
+
+  if (timeChart) timeChart.destroy();
+  timeChart = new Chart(document.getElementById('timeChart'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{ data: results.map(r => r.time), backgroundColor: colors, borderRadius: 6 }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: { y: { beginAtZero: true, title: { display: true, text: 'ms' } } }
+    }
+  });
+
+  if (compChart) compChart.destroy();
+  compChart = new Chart(document.getElementById('compChart'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{ data: results.map(r => r.comparisons), backgroundColor: colors, borderRadius: 6 }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: { y: { beginAtZero: true } }
+    }
+  });
+
+  if (swapChart) swapChart.destroy();
+  swapChart = new Chart(document.getElementById('swapChart'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{ data: results.map(r => r.swaps), backgroundColor: colors, borderRadius: 6 }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: { y: { beginAtZero: true } }
+    }
+  });
+
+  document.getElementById('status').classList.add('hidden');
+  document.getElementById('metrics').classList.remove('hidden');
+  document.getElementById('charts').classList.remove('hidden');
+  document.getElementById('runBtn').disabled = false;
+  document.getElementById('exportBtn').disabled = false;
+});
+
+// Export CSV
+document.getElementById('exportBtn').addEventListener('click', () => {
+  if (!lastResults.length) return;
+  let csv = 'Algorithm,Time (ms),Comparisons,Swaps/Moves,Valid\n';
+  lastResults.forEach(r => {
+    csv += `${r.name},${r.time.toFixed(4)},${r.comparisons},${r.swaps},${r.valid}\n`;
+  });
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'algorithm_race_results.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+// ==================== BINARY SEARCH ====================
+document.getElementById('bsRun').addEventListener('click', () => {
+  const n = +document.getElementById('bsSize').value;
+  const target = +document.getElementById('bsTarget').value;
+  const arr = Array.from({length: n}, (_, i) => i * 3 + 1); // sorted unique values
+
+  const arrayEl = document.getElementById('bsArray');
+  arrayEl.innerHTML = arr.map((v, i) => 
+    `<div class="w-10 h-10 flex items-center justify-center rounded border text-xs font-mono bg-slate-50" id="cell-${i}">${v}</div>`
+  ).join('');
+
+  const stepsEl = document.getElementById('bsSteps');
+  stepsEl.innerHTML = '';
+  let low = 0, high = n - 1, step = 0;
+  let found = false;
+
+  function highlight(l, m, h) {
+    for (let i = 0; i < n; i++) {
+      const cell = document.getElementById(`cell-${i}`);
+      cell.className = 'w-10 h-10 flex items-center justify-center rounded border text-xs font-mono';
+      if (i === m) cell.classList.add('bg-sky-500', 'text-white', 'font-bold');
+      else if (i >= l && i <= h) cell.classList.add('bg-sky-100');
+      else cell.classList.add('bg-slate-100', 'text-slate-400');
+    }
+  }
+
+  function nextStep() {
+    if (low > high) {
+      document.getElementById('bsInfo').innerHTML = `<span class="text-red-600 font-medium">Target ${target} not found</span>`;
+      return;
+    }
+    const mid = Math.floor((low + high) / 2);
+    step++;
+    highlight(low, mid, high);
+
+    const info = `Step ${step}: low=${low}, mid=${mid}, high=${high} → arr[mid]=${arr[mid]}`;
+    stepsEl.innerHTML += `<div class="bg-slate-50 border rounded px-3 py-2 text-sm font-mono">${info}</div>`;
+    stepsEl.scrollTop = stepsEl.scrollHeight;
+
+    if (arr[mid] === target) {
+      document.getElementById('bsInfo').innerHTML = `<span class="text-emerald-600 font-medium">Found ${target} at index ${mid} in ${step} steps</span>`;
+      document.getElementById(`cell-${mid}`).classList.add('ring-2', 'ring-emerald-500');
+      found = true;
+      return;
+    } else if (arr[mid] < target) {
+      low = mid + 1;
+    } else {
+      high = mid - 1;
+    }
+
+    if (!found) setTimeout(nextStep, 600);
+  }
+
+  document.getElementById('bsInfo').innerHTML = 'Searching...';
+  setTimeout(nextStep, 300);
+});
+
+// ==================== TABS ====================
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => {
+      b.classList.remove('active');
+      b.classList.add('text-slate-600', 'hover:bg-slate-100');
+    });
+    btn.classList.add('active');
+    btn.classList.remove('text-slate-600', 'hover:bg-slate-100');
+
+    document.querySelectorAll('[id^="tab-"]').forEach(t => t.classList.add('hidden'));
+    document.getElementById('tab-' + btn.dataset.tab).classList.remove('hidden');
+  });
+});
+</script>
+</body>
+</html>
